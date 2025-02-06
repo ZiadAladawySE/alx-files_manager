@@ -1,66 +1,38 @@
-import mongodb from 'mongodb';
+import { MongoClient } from 'mongodb';
+
+const host = process.env.DB_HOST || 'localhost';
+const port = process.env.DB_PORT || 27017;
+const database = process.env.DB_DATABASE || 'files_manager';
+const url = `mongodb://${host}:${port}/`;
 
 class DBClient {
   constructor() {
-    const host = process.env.DB_HOST || 'localhost';
-    const port = process.env.DB_PORT || '27017';
-    const database = process.env.DB_DATABASE || 'files_manager';
-    const dbURL = `mongodb://${host}:${port}/${database}`;
-
-    this.client = new mongodb.MongoClient(dbURL, { useUnifiedTopology: true });
-    this.connected = false;
-    this.connect();
-  }
-
-  async connect() {
-    try {
-      await this.client.connect();
-      this.connected = true;
-      console.log('Connected to MongoDB');
-    } catch (error) {
-      console.error('Failed to connect to MongoDB:', error);
-      this.client = null;
-    }
+    this.db = null;
+    MongoClient.connect(url, { useUnifiedTopology: true }, (error, client) => {
+      if (error) console.log(error);
+      this.db = client.db(database);
+      this.db.createCollection('users');
+      this.db.createCollection('files');
+    });
   }
 
   isAlive() {
-    return (
-      this.connected
-      && this.client
-      && this.client.topology
-      && this.client.topology.isConnected()
-    );
-  }
-
-  async userCollection() {
-    if (!this.isAlive()) {
-      throw new Error('Not connected to the database');
-    }
-    return this.client.db().collection('users');
+    return !!this.db;
   }
 
   async nbUsers() {
-    if (!this.isAlive()) {
-      throw new Error('Not connected to the database');
-    }
-    try {
-      return await this.client.db().collection('users').countDocuments();
-    } catch (error) {
-      console.error('Error counting users:', error);
-      throw error;
-    }
+    return this.db.collection('users').countDocuments();
+  }
+
+  async getUser(query) {
+    console.log('QUERY IN DB.JS', query);
+    const user = await this.db.collection('users').findOne(query);
+    console.log('GET USER IN DB.JS', user);
+    return user;
   }
 
   async nbFiles() {
-    if (!this.isAlive()) {
-      throw new Error('Not connected to the database');
-    }
-    try {
-      return await this.client.db().collection('files').countDocuments();
-    } catch (error) {
-      console.error('Error counting files:', error);
-      throw error;
-    }
+    return this.db.collection('files').countDocuments();
   }
 }
 
